@@ -1,40 +1,24 @@
 <template>
     <div>
-        <div>
-            <div class="file-upload-form">
-                Upload an image file:
-                <input type="file" @change="previewImage" accept="image/*">
-            </div>
-            <div id="cropit-ctn" v-if="src != null && src.length > 0">
-                <img id="cropit" class="preview" :src="src"/> 
-                <div class="cropping-btns">
-                    <button class="btn btn-info" v-on:click="createCropper" v-bind:class="{ disabled: isCropping}">Crop</button>
-                    <button v-if="isCropping" class="btn btn-info" v-on:click="cropIt">Save</button>
-                </div>
-            </div>
-            <div id="cropit-ctn" v-else>
-                <img class="preview" src="http://via.placeholder.com/675x379">
-            </div>
-        </div>
-
         <div class="blogcover">
         </div>
         <div class="form-group">
-            <label for="title" class="control-label"><label for="title">Title</label></label>
+            <label for="title" class="control-label"><label for="title">标题</label></label>
             <input class="form-control" v-model="data.title" placeholder="Write a nice title" type="text">
         </div>
         <markdown-editor v-model="data.body"></markdown-editor/>
         <div class="action-btns">
-            <button class="btn btn-warning" v-on:click="update">Save draft</button>
+            <button class="btn btn-warning" v-on:click="update">保存草稿</button>
             <div v-if="canPublish">
-                <button v-if="this.data.published" class="btn btn-primary" v-on:click="publish(false)">Unpublish</button>
-                <button v-else class="btn btn-primary" v-on:click="publish(true)">Publish</button>
+                <button v-if="this.data.published" class="btn btn-primary" v-on:click="publish(false)">取消发布</button>
+                <button v-else class="btn btn-primary" v-on:click="publish(true)">发布</button>
             </div>
         </div>
     </div>
 </template>
 <script>
 import axios from 'axios'
+import toastr from "toastr"
 //import VueCoreImageUpload from 'vue-core-image-upload'
 import { markdownEditor } from 'vue-simplemde'
 import Cropper from 'cropperjs'
@@ -85,34 +69,30 @@ export default {
         var update = false
         if (url.indexOf('/update') !== -1) {
             var tmp = url.split('/')
-            console.log(tmp)
-            console.log(tmp[(tmp.length -2)])
             this.blogpost_id = tmp[(tmp.length -2)]
             url = '/api/blogpost/' + this.blogpost_id
-            console.log(url)
             update = true
         }
         var options = {headers: {'Content-Type': 'application/json'}}
         var self = this
+        this.update = update
         axios({
-          method:'get',
-          url:url,
-          headers: {'Content-Type': 'application/json'},
-          data: null
-        })
-          .then(function(response) {
-          self.project = response.data.project
-          self.owner = response.data.owner
-          if (update) {
-            self.data.project_id = response.data.project_id
-            self.data.title = response.data.title
-            self.data.body = response.data.body
-            self.src = response.data.media_url
-            self.file_name = response.data.info.file_name
-          }
-          else {
-            self.data.project_id = response.data.project.id
-          }
+            method:'get',
+            url:url,
+            headers: {'Content-Type': 'application/json'},
+            data: null
+        }).then(function(response) {
+            self.project = response.data.project
+            self.owner = response.data.owner
+            if (update) {
+                self.data.project_id = response.data.project_id
+                self.data.title = response.data.title
+                self.data.body = response.data.body
+                self.src = response.data.media_url
+                self.file_name = response.data.info.file_name
+            } else {
+                self.data.project_id = response.data.project.id
+            }
         });
 
     },
@@ -149,7 +129,6 @@ export default {
                 formData.append('project_id', self.data.project_id)
                 formData.append('title', self.data.title)
                 formData.append('body', self.data.body)
-                console.log(self.puturl)
 
                 if (self.puturl === '/api/blogpost') {
                     axios.post(self.puturl, formData).then(function(response){
@@ -161,8 +140,7 @@ export default {
                         self.cropper = null
                     }
                     )
-                }
-                else {
+                } else {
                     axios.put(self.puturl, formData).then(function(response){
                         self.data.title = response.data.title
                         self.data.body = response.data.body
@@ -204,8 +182,12 @@ export default {
         update(){
             var self = this
             if (this.puturl === '/api/blogpost') {
-                axios.post(this.puturl, this.data).then(function(response){
-                    console.log(response)
+                axios.post(this.puturl, this.data).then(function (response) {
+                    if (response.status === 200) {
+                        toastr.success('保存草稿成功，可以发布了:D')
+                    } else {
+                        toastr.error("服务器开小差了:-(")
+                    }
                     if (response.data.media_url !== '' && response.data.media_url !== null) {
                         self.src = response.data.media_url
                     }
@@ -214,14 +196,45 @@ export default {
                     self.blogpost_id = response.data.id
 
                 })
+            } else {
+                axios.put(this.puturl, this.data).then(function (response) {
+                    if (response.status === 200) {
+                        toastr.success('更新成功:D')
+                    } else {
+                        toastr.error("服务器开小差了:-(")
+                    }
+                })
+            }
+        },
+        publish(flag){
+            this.data.published = flag
+            var self = this
+            if (!this.update) {
+                axios.post(this.puturl, this.data).then(function (response) {
+                    if (response.status === 200) {
+                        toastr.success('更新成功:D')
+                    } else {
+                        toastr.error("服务器开小差了:-(")
+                    }
+                    if (response.data.media_url !== '' && response.data.media_url !== null) {
+                        self.src = response.data.media_url
+                    }
+                    self.data.title = response.data.title
+                    self.data.body = response.data.body
+                    self.blogpost_id = response.data.id
+
+                })
+            } else {
+                axios.put(this.puturl, this.data).then(function (response) {
+                    if (response.status === 200) {
+                        toastr.success('更新成功:D')
+                    } else {
+                        toastr.error("服务器开小差了:-(")
+                    }
+                })
+            }
         }
-        else axios.put(this.puturl, this.data).then(function(response){console.log(response)})
     },
-    publish(flag){
-        this.data.published = flag
-        axios.put(this.puturl, this.data).then(function(response){console.log(response)})
-    }
-},
     computed: {
         isCropping(){
             if (this.cropper !== null) return true
@@ -231,10 +244,10 @@ export default {
             if (this.blogpost_id) return '/api/blogpost/' + this.blogpost_id
             else return '/api/blogpost'
         },
-            canPublish(){
-                if (this.data.title === '' || this.data.body === '') return false
-                else return true
-            }
+        canPublish(){
+            if (this.data.title === '' || this.data.body === '') return false
+            else return true
+        }
     }
 }
 </script>

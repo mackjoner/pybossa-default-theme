@@ -1,4 +1,5 @@
 // webpack.config.js
+const path = require('path');
 var htmlWebpackPlugin = require('html-webpack-plugin');
 var webpack = require("webpack");
 
@@ -16,8 +17,9 @@ module.exports = {
   entry: './editor.js',
   // where to place the compiled bundle
   output: {
-    path: '../js/',
+    //path: '../js/',
     publicPath: '/static/js/',
+    path: path.resolve(__dirname, '../js/'),
     filename: 'editor.min.js'
   },
   module: {
