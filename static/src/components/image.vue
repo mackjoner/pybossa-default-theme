@@ -8,7 +8,7 @@
         </div>
         <markdown-editor v-model="data.body"></markdown-editor/>
         <div class="action-btns">
-            <button class="btn btn-warning" v-on:click="update">保存草稿</button>
+            <button class="btn btn-warning" v-on:click="save()">保存</button>
             <div v-if="canPublish">
                 <button v-if="this.data.published" class="btn btn-primary" v-on:click="publish(false)">取消发布</button>
                 <button v-else class="btn btn-primary" v-on:click="publish(true)">发布</button>
@@ -56,16 +56,21 @@ export default {
             cropper: null,
             project: null,
             owner: null,
-            data: {project_id: null,
+            data: {
+                project_id: null,
                 title: '',
                 body: '',
                 published: false
             },
             file_name: null,
+            short_name: '',
         }
     },
     created(){
         var url = window.location.href 
+        var reg = /\/project\/(\w+)/g
+        var groups = reg.exec(url)
+        if (groups !== null) this.short_name = groups[1]
         var update = false
         if (url.indexOf('/update') !== -1) {
             var tmp = url.split('/')
@@ -89,7 +94,8 @@ export default {
                 self.data.title = response.data.title
                 self.data.body = response.data.body
                 self.src = response.data.media_url
-                self.file_name = response.data.info.file_name
+                self.file_name = null
+                self.data.published = response.data.published
             } else {
                 self.data.project_id = response.data.project.id
             }
@@ -179,22 +185,23 @@ export default {
             this.data.body = res.body
             this.blogpost_id = res.id
         },
-        update(){
+        save(){
             var self = this
-            if (this.puturl === '/api/blogpost') {
+            if (!this.update) {
                 axios.post(this.puturl, this.data).then(function (response) {
                     if (response.status === 200) {
-                        toastr.success('保存草稿成功，可以发布了:D')
+                        toastr.success('保存成功，可以发布了:D')
                     } else {
                         toastr.error("服务器开小差了:-(")
                     }
+                    // toastr.clear()
                     if (response.data.media_url !== '' && response.data.media_url !== null) {
                         self.src = response.data.media_url
                     }
                     self.data.title = response.data.title
                     self.data.body = response.data.body
                     self.blogpost_id = response.data.id
-
+                    self.update = true
                 })
             } else {
                 axios.put(this.puturl, this.data).then(function (response) {
@@ -203,6 +210,10 @@ export default {
                     } else {
                         toastr.error("服务器开小差了:-(")
                     }
+                    // toastr.clear()
+                    setTimeout(function () {
+                        window.location.href = "/project/" + self.short_name + "/blogs"
+                    }, 3000)
                 })
             }
         },
@@ -233,6 +244,11 @@ export default {
                     }
                 })
             }
+            // toastr.clear()
+            var short_name = this.short_name
+            setTimeout(function () {
+                window.location.href = "/project/" + self.short_name + "/blogs"
+            }, 3000)
         }
     },
     computed: {
